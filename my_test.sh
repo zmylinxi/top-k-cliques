@@ -9,7 +9,7 @@ make clean
 make
 
 RUNFILE="/scratch/wujun/inv_graph/soc-orkut-inv"
-OUTPUTFILE="/scratch/wujun/inv_graph/soc-orkut-inv.output"
+OUTPUTFILE="output/soc.out"
 
 echo $RUNFILE;
 # echo "----"
