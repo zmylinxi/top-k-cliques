@@ -499,9 +499,10 @@ long DegeneracyAlgorithm::listAllMaximalCliquesDegeneracy(vector<list<int>> cons
 
         partialClique.pop_back();
 
+        long delta = cliqueCount - last;
         max_clique = max(max_clique, cliqueCount - last);
         last = cliqueCount;
-
+        cout << "vertex " << i << ", belong to " << delta << " cliques" << endl;
     }
     cout << "max clique: " << max_clique << endl;
     //cerr << endl;
