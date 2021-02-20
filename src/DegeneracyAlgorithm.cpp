@@ -460,6 +460,7 @@ long DegeneracyAlgorithm::listAllMaximalCliquesDegeneracy(vector<list<int>> cons
     list<int> partialClique;
 
     // for each vertex
+    long last = 0, max_clique = 0;
     for(i=0;i<size;i++)
     {
         int vertex = (int)orderingArray[i]->vertex;
@@ -497,8 +498,12 @@ long DegeneracyAlgorithm::listAllMaximalCliquesDegeneracy(vector<list<int>> cons
         beginR = beginR + 1;
 
         partialClique.pop_back();
-    }
 
+        max_clique = max(max_clique, cliqueCount - last);
+        last = cliqueCount;
+
+    }
+    cout << "max clique: " << max_clique << endl;
     //cerr << endl;
     //cerr << "Largest Difference  : " << largestDifference << endl;
     //cerr << "Num     Differences : " << numLargeJumps << endl;
