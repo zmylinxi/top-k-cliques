@@ -104,9 +104,10 @@ DegeneracyAlgorithm::~DegeneracyAlgorithm()
 {
 }
 
-long DegeneracyAlgorithm::Run(list<list<int>> &cliques)
+long DegeneracyAlgorithm::Run(list<list<int>> &cliques, vector<long> &vertex_clique, int &now_vertex, long &clique_left, long &clique_right, bool &done)
 {
-    return listAllMaximalCliquesDegeneracy(m_AdjacencyList, m_AdjacencyList.size());
+    done = false;
+    return listAllMaximalCliquesDegeneracy(m_AdjacencyList, m_AdjacencyList.size(), cliques, vertex_clique, now_vertex, clique_left, clique_right, done);
 }
 
 
@@ -422,7 +423,7 @@ static unsigned long largestDifference(0);
 static unsigned long numLargeJumps;
 static unsigned long stepsSinceLastReportedClique(0);
 
-long DegeneracyAlgorithm::listAllMaximalCliquesDegeneracy(vector<list<int>> const &adjList, int size)
+long DegeneracyAlgorithm::listAllMaximalCliquesDegeneracy(vector<list<int>> const &adjList, int size, list<list<int>> &cliques, vector<long> &vertex_clique, int &now_vertex, long &clique_left, long &clique_right, bool &done)
 {
     // vertex sets are stored in an array like this:
     // |--X--|--P--|
@@ -462,7 +463,8 @@ long DegeneracyAlgorithm::listAllMaximalCliquesDegeneracy(vector<list<int>> cons
     // for each vertex
     long last = 0, max_clique = 0;
     for(i=0;i<size;i++)
-    {
+    {   
+        // cerr << "Degne i: " << i << endl;
         int vertex = (int)orderingArray[i]->vertex;
 
         #ifdef PRINT_CLIQUES_TOMITA_STYLE
@@ -489,12 +491,9 @@ long DegeneracyAlgorithm::listAllMaximalCliquesDegeneracy(vector<list<int>> cons
                                                   partialClique, 
                                                   vertexSets, vertexLookup,
                                                   neighborsInP, numNeighbors,
-                                                  newBeginX, newBeginP, newBeginR); 
-
-        #ifdef PRINT_CLIQUES_TOMITA_STYLE
-        printf("b ");
-        #endif
-
+                                                  newBeginX, newBeginP, newBeginR, cliques, clique_left, clique_right, done); 
+        if (cliqueCount >= clique_right) break;
+        
         beginR = beginR + 1;
 
         partialClique.pop_back();
@@ -502,9 +501,13 @@ long DegeneracyAlgorithm::listAllMaximalCliquesDegeneracy(vector<list<int>> cons
         long delta = cliqueCount - last;
         max_clique = max(max_clique, delta);
         last = cliqueCount;
-        cout << "vertex " << i << ", belong to " << delta << " cliques" << endl;
+        if (vertex_clique[i] == -1) vertex_clique[i] = delta;
+        if (i == size - 1) {
+            done = true;
+        }
+        // cout << "vertex " << i << ", belong to " << delta << " cliques" << endl;
     }
-    cout << "max clique: " << max_clique << endl;
+    // cerr << "max clique: " << max_clique << endl;
     //cerr << endl;
     //cerr << "Largest Difference  : " << largestDifference << endl;
     //cerr << "Num     Differences : " << numLargeJumps << endl;
@@ -529,7 +532,7 @@ long DegeneracyAlgorithm::listAllMaximalCliquesDegeneracy(vector<list<int>> cons
     Free(orderingArray);
     Free(neighborsInP);
     Free(numNeighbors);
-
+    // cerr << "Run Done!" << endl;
     return cliqueCount;
 }
 
@@ -748,7 +751,8 @@ void DegeneracyAlgorithm::listAllMaximalCliquesDegeneracyRecursive(long* cliqueC
                                                list<int> &partialClique, 
                                                int* vertexSets, int* vertexLookup,
                                                int** neighborsInP, int* numNeighbors,
-                                               int beginX, int beginP, int beginR)
+                                               int beginX, int beginP, int beginR,
+                                               list<list<int>> &cliques, long &clique_left, long &clique_right, bool &done)
 {
 
     stepsSinceLastReportedClique++;
@@ -756,8 +760,14 @@ void DegeneracyAlgorithm::listAllMaximalCliquesDegeneracyRecursive(long* cliqueC
     // if X is empty and P is empty, process partial clique as maximal
     if(beginX >= beginP && beginP >= beginR)
     {
+        if ((*cliqueCount) < clique_left) {
+            // nothing
+        } else if ((*cliqueCount) < clique_right) {
+            cliques.push_back(partialClique);
+        }
         (*cliqueCount)++;
-
+        if ((*cliqueCount) >= clique_right) return ;
+        
         if (stepsSinceLastReportedClique > partialClique.size()) {
             numLargeJumps++;
             //cerr << "steps: " << stepsSinceLastReportedClique << ">" << partialClique.size() << endl;
@@ -792,66 +802,65 @@ void DegeneracyAlgorithm::listAllMaximalCliquesDegeneracyRecursive(long* cliqueC
     // search for maximal cliques
     if(numCandidatesToIterateThrough != 0)
     {
-    int iterator = 0;
-    while(iterator < numCandidatesToIterateThrough)
-    {
-        // vertex to be added to the partial clique
-        int vertex = myCandidatesToIterateThrough[iterator];
+        int iterator = 0;
+        while(iterator < numCandidatesToIterateThrough)
+        {
+            // vertex to be added to the partial clique
+            int vertex = myCandidatesToIterateThrough[iterator];
 
-        #ifdef PRINT_CLIQUES_TOMITA_STYLE
-        printf("%d ", vertex);
-        #endif
+            #ifdef PRINT_CLIQUES_TOMITA_STYLE
+            printf("%d ", vertex);
+            #endif
 
-        int newBeginX, newBeginP, newBeginR;
+            int newBeginX, newBeginP, newBeginR;
 
-        // add vertex into partialClique, representing R.
-        partialClique.push_back(vertex);
+            // add vertex into partialClique, representing R.
+            partialClique.push_back(vertex);
 
-        // swap vertex into R and update all data structures 
-        moveToRDegeneracy( vertex, 
-                           vertexSets, vertexLookup, 
-                           neighborsInP, numNeighbors,
-                           &beginX, &beginP, &beginR, 
-                           &newBeginX, &newBeginP, &newBeginR);
+            // swap vertex into R and update all data structures 
+            moveToRDegeneracy( vertex, 
+                            vertexSets, vertexLookup, 
+                            neighborsInP, numNeighbors,
+                            &beginX, &beginP, &beginR, 
+                            &newBeginX, &newBeginP, &newBeginR);
 
-        // recursively compute maximal cliques with new sets R, P and X
-        listAllMaximalCliquesDegeneracyRecursive(cliqueCount,
-                                                 partialClique, 
-                                                 vertexSets, vertexLookup,
-                                                 neighborsInP, numNeighbors,
-                                                 newBeginX, newBeginP, newBeginR);
+            // recursively compute maximal cliques with new sets R, P and X
+            listAllMaximalCliquesDegeneracyRecursive(cliqueCount,
+                                                    partialClique, 
+                                                    vertexSets, vertexLookup,
+                                                    neighborsInP, numNeighbors,
+                                                    newBeginX, newBeginP, newBeginR, cliques, clique_left, clique_right, done);
+            if ((*cliqueCount) >= clique_right) break;
+            #ifdef PRINT_CLIQUES_TOMITA_STYLE
+            printf("b ");
+            #endif
 
-        #ifdef PRINT_CLIQUES_TOMITA_STYLE
-        printf("b ");
-        #endif
+            // remove vertex from partialClique
+            partialClique.pop_back();
 
-        // remove vertex from partialClique
-        partialClique.pop_back();
+            moveFromRToXDegeneracy( vertex, 
+                                    vertexSets, vertexLookup,
+                                    &beginX, &beginP, &beginR );
 
-        moveFromRToXDegeneracy( vertex, 
-                                vertexSets, vertexLookup,
-                                &beginX, &beginP, &beginR );
+            iterator++;
+        }
+        // swap vertices that were moved to X back into P, for higher recursive calls.
+        iterator = 0;
 
-        iterator++;
-    }
+    ////    clock_t clockStart = clock();
+        while(iterator < numCandidatesToIterateThrough)
+        {
+            int vertex = myCandidatesToIterateThrough[iterator];
+            int vertexLocation = vertexLookup[vertex];
 
-    // swap vertices that were moved to X back into P, for higher recursive calls.
-    iterator = 0;
+            beginP--;
+            vertexSets[vertexLocation] = vertexSets[beginP];
+            vertexSets[beginP] = vertex;
+            vertexLookup[vertex] = beginP;
+            vertexLookup[vertexSets[vertexLocation]] = vertexLocation;
 
-////    clock_t clockStart = clock();
-    while(iterator < numCandidatesToIterateThrough)
-    {
-        int vertex = myCandidatesToIterateThrough[iterator];
-        int vertexLocation = vertexLookup[vertex];
-
-        beginP--;
-        vertexSets[vertexLocation] = vertexSets[beginP];
-        vertexSets[beginP] = vertex;
-        vertexLookup[vertex] = beginP;
-        vertexLookup[vertexSets[vertexLocation]] = vertexLocation;
-
-        iterator++;
-    }
+            iterator++;
+        }
 ////    clock_t clockEnd = clock();
 ////    timeMovingXToP += (clockEnd - clockStart);
     }

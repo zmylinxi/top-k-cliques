@@ -23,6 +23,6 @@ echo " "
 # bin/qc --algorithm=tomita     --input-file=$1 > /dev/null
 # bin/qc --algorithm=adjlist    --input-file=$1 > /dev/null
 # bin/qc --algorithm=hybrid     --input-file=$1 > /dev/null
-bin/qc --algorithm=degeneracy --input-file=$RUNFILE > $OUTPUTFILE
+bin/qc --algorithm=degeneracy --input-file=$RUNFILE --K=2 > $OUTPUTFILE
 echo " "
 echo " "

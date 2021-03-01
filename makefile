@@ -9,9 +9,6 @@ CFLAGS = -Winline -O2 -std=c++11 -g
 SOURCES_TMP += CliqueTools.cpp
 SOURCES_TMP += MemoryManager.cpp
 SOURCES_TMP += Algorithm.cpp
-SOURCES_TMP += TomitaAlgorithm.cpp
-SOURCES_TMP += AdjacencyListAlgorithm.cpp
-SOURCES_TMP += HybridAlgorithm.cpp
 SOURCES_TMP += DegeneracyAlgorithm.cpp
 SOURCES_TMP += DegeneracyTools.cpp
 SOURCES_TMP += Tools.cpp

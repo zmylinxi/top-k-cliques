@@ -15,9 +15,6 @@
 
 // local includes
 #include "Tools.h"
-#include "TomitaAlgorithm.h"
-#include "AdjacencyListAlgorithm.h"
-#include "HybridAlgorithm.h"
 #include "DegeneracyAlgorithm.h"
 #include "CliqueTools.h"
 
@@ -60,6 +57,9 @@ bool   staging;
 bool   bTableMode;
 int K;
 
+const int BLOCK = 30000;
+
+
 void PrintDebugWarning()
 {
     cout << "\n\n\n\n\n" << flush;
@@ -94,86 +94,64 @@ string basename(string const &fileName)
 }
 
 
+int n; // number of vertices
+int m; // 2x number of edges
 class ETKC_Solver {
+    class Solution {
+    private:
+        vector<int> vertex_cover;
+        vector<list<int>> choose;
+    public:
+        int value;
+        void init() {
+            vertex_cover.resize(n);
+            for (int i = 0; i < n; ++i) {
+                vertex_cover[i] = 0;
+            }
+            value = 0;
+            choose.reserve(K);
+        }
+        bool operator< (const Solution &rhs) const {
+            return value < rhs.value;
+        }
+        void add(int x) {
+            if (++vertex_cover[x] == 1) ++value;
+       }
+        void del(int x) {
+            if (--vertex_cover[x] == 0) --value;
+        }
+        void proc(list<int> &clique, const char &ch) {
+            if (ch == 'A') choose.push_back(clique);
+            else choose.pop_back();
+            for (const int &x : clique) {
+                if (ch == 'A') add(x);
+                else if (ch == 'D') del(x);
+                else assert(false);
+            }
+        }
+    } now_solution, global_best;
 private:
+    vector<list<int>> adjacencyList;
+    vector<long> vertex_clique;
+    vector<Algorithm *> vpAlgo;
+    vector<list<list<int>>> vcliques;
+    vector<list<list<int>>::iterator> vit;
+    vector<int> vnow_vertex;
+    vector<long> vclique_left, vclique_right;
+    vector<bool> vfinish;
 
-public:
-    int solve() {
-        if (!bTableMode) {
-            PrintHeader();
-    #ifdef DEBUG_MESSAGE
-            PrintDebugWarning();
-    #endif //DEBUG_MESSAGE
-        }
+    Algorithm* new_algorithm(int id) {
+        vnow_vertex[id] = 0;
+        vclique_left[id] = 0;
+        vclique_right[id] = 0;
+        vfinish[id] = false;
+        vcliques[id].clear();
         Algorithm *pAlgorithm(nullptr);
-
-        int n; // number of vertices
-        int m; // 2x number of edges
-
-        bool bOneBasedVertexIds(false);
-        vector<list<int>> adjacencyList;
-        if (inputFile.find(".graph") != string::npos) {
-            if (!bTableMode) cout << "Detected .graph extension, reading METIS file format. " << endl << flush;
-            adjacencyList = readInGraphAdjListEdgesPerLine(n, m, inputFile);
-            bOneBasedVertexIds = true;
-        } else {
-            if (!bTableMode) cout << "Reading .edges file format: one edge per line. " << endl << flush;
-            adjacencyList = readInGraphAdjList(n, m, inputFile);
-        }
-
-        bool const bComputeAdjacencyMatrix(adjacencyList.size() < 20000);
-        bool const bShouldComputeAdjacencyMatrix(algorithm == "tomita");
-
-        if (bShouldComputeAdjacencyMatrix && !bComputeAdjacencyMatrix) {
-            cout << "ERROR!: unable to compute adjacencyMatrix, since the graph is too large: " << adjacencyList.size() << " vertices." << endl << flush;
-            exit(1);
-        }
-
-        char** adjacencyMatrix(nullptr);
-
-        vector<vector<char>> vAdjacencyMatrix;
-
-        if (bComputeAdjacencyMatrix) {
-            adjacencyMatrix = (char**)Calloc(n, sizeof(char*));
-            vAdjacencyMatrix.resize(n);
-
-            for(int i=0; i<n; i++) {
-                adjacencyMatrix[i] = (char*)Calloc(n, sizeof(char));
-                vAdjacencyMatrix[i].resize(n);
-                for(int const neighbor : adjacencyList[i]) {
-                    adjacencyMatrix[i][neighbor]  = 1; 
-                    vAdjacencyMatrix[i][neighbor] = 1; 
-                }
-            }
-        }
-
-        bool const bComputeAdjacencyArray(algorithm == "adjlist");
-
-        vector<vector<int>> adjacencyArray;
-
-        if (bComputeAdjacencyArray) {
-            adjacencyArray.resize(n);
-            for (int i=0; i<n; i++) {
-                adjacencyArray[i].resize(adjacencyList[i].size());
-                int j = 0;
-                for (int const neighbor : adjacencyList[i]) {
-                    adjacencyArray[i][j++] = neighbor;
-                }
-            }
-            adjacencyList.clear(); // does this free up memory? probably some...
-        }
-
-        if (algorithm == "tomita") {
-            pAlgorithm = new TomitaAlgorithm(adjacencyMatrix, n);
-        } else if (algorithm == "adjlist") {
-            pAlgorithm = new AdjacencyListAlgorithm(adjacencyArray);
-        } else if (algorithm == "degeneracy") {
+        if (algorithm == "degeneracy") {
             pAlgorithm = new DegeneracyAlgorithm(adjacencyList);
-        } else if (algorithm == "hybrid") {
-            pAlgorithm = new HybridAlgorithm(adjacencyList);
         } else {
             cout << "ERROR: unrecognized algorithm name: " << algorithm << endl;
-            return 1;
+            exit(1);
         }
 
     #ifdef PRINT_CLIQUES_ONE_BY_ONE
@@ -196,37 +174,8 @@ public:
         pAlgorithm->AddCallBack(printClique);
     #endif //PRINT_CLIQUES_ONE_BY_ONE
 
-        auto verifyMaximalCliqueArray = [&adjacencyArray](list<int> const &clique) {
-            bool const isIS = CliqueTools::IsMaximalClique(adjacencyArray, clique, true /* verbose */);
-            if (!isIS) {
-                cout << "ERROR: Set " << (isIS ? "is" : "is not" ) << " a maximal clique!" << endl;
-            }
-        };
-
-        auto verifyCliqueMatrix = [&vAdjacencyMatrix](list<int> const &clique) {
-            bool const isIS = CliqueTools::IsClique(vAdjacencyMatrix, clique, true /* verbose */);
-            if (!isIS) {
-                cout << "ERROR: Set " << (isIS ? "is" : "is not" ) << " a clique!" << endl;
-            }
-        };
-
-        auto printCliqueSize = [](list<int> const &clique) {
-            cout << "Found clique of size " << clique.size() << endl << flush;
-        };
-
-    ////    pAlgorithm->AddCallBack(printCliqueSize);
-    ////    pAlgorithm->AddCallBack(printClique);
-
-        if (!bComputeAdjacencyMatrix) {
-    ////        pAlgorithm->AddCallBack(verifyIndependentSetArray);
-    ////        pAlgorithm->AddCallBack(verifyMaximalCliqueArray);
-        } else {
-    ////        pAlgorithm->AddCallBack(verifyCliqueMatrix);
-    ////        pAlgorithm->AddCallBack(verifyIndependentSetMatrix);
-        }
-
         // Run algorithm
-        list<list<int>> cliques;
+        
 
     #ifdef RETURN_CLIQUES_ONE_BY_ONE
         auto storeCliqueInList = [&cliques](list<int> const &clique) {
@@ -237,32 +186,127 @@ public:
 
         pAlgorithm->SetQuiet(bQuiet);
 
-        RunAndPrintStats(pAlgorithm, cliques, bTableMode);
-
     ////    cout << "Last clique has size: " << cliques.back().size() << endl << flush;
-
-        cliques.clear();
-
-        if (adjacencyMatrix != nullptr) {
-            int i = 0;
-            while(i<n) {
-                Free(adjacencyMatrix[i]);
-                i++;
-            }
-            Free(adjacencyMatrix); 
-            adjacencyMatrix = nullptr;
+        return pAlgorithm;
+    }
+    
+    void init() {
+        if (!bTableMode) {
+            PrintHeader();
+    #ifdef DEBUG_MESSAGE
+            PrintDebugWarning();
+    #endif //DEBUG_MESSAGE
         }
 
-        delete pAlgorithm; pAlgorithm = nullptr;
+        bool bOneBasedVertexIds(false);
+        if (inputFile.find(".graph") != string::npos) {
+            if (!bTableMode) cout << "Detected .graph extension, reading METIS file format. " << endl << flush;
+            adjacencyList = readInGraphAdjListEdgesPerLine(n, m, inputFile);
+            bOneBasedVertexIds = true;
+        } else {
+            if (!bTableMode) cout << "Reading .edges file format: one edge per line. " << endl << flush;
+            adjacencyList = readInGraphAdjList(n, m, inputFile);
+        }
 
-    #ifdef DEBUG_MESSAGE
-        PrintDebugWarning();
-    #endif
+        bool const bComputeAdjacencyMatrix(adjacencyList.size() < 20000);
+        bool const bShouldComputeAdjacencyMatrix(algorithm == "tomita");
 
+        if (bShouldComputeAdjacencyMatrix && !bComputeAdjacencyMatrix) {
+            cout << "ERROR!: unable to compute adjacencyMatrix, since the graph is too large: " << adjacencyList.size() << " vertices." << endl << flush;
+            exit(1);
+        }
+
+        vertex_clique.resize(n);
+        fill(vertex_clique.begin(), vertex_clique.end(), -1);
+
+        vpAlgo.resize(K);
+        vcliques.resize(K);
+        vnow_vertex.resize(K);
+        vclique_left.resize(K);
+        vclique_right.resize(K);
+        vfinish.resize(K);
+        vit.resize(K);
+
+        now_solution.init();
+        global_best.init();
+    }
+    void get_next_block(int x) {
+        vclique_left[x] = vclique_right[x];
+        vclique_right[x] += BLOCK;
+        // if (x == 0) {
+        //     cerr << "x: " << x << "[" << vclique_left[x] << ", " << vclique_right[x] << "]" << endl;
+        // }
+        vcliques[x].clear();
+        bool done;
+        RunAndPrintStats(vpAlgo[x], vcliques[x], bTableMode, vertex_clique, vnow_vertex[x], vclique_left[x], vclique_right[x], done);
+        // cerr << "RunAndPrintStats done!" << endl;
+        // cerr << "vcliques size: " << vcliques[x].size() << endl;
+        
+        vit[x] = vcliques[x].begin();
+        if (done) {
+            vfinish[x] = true;
+        }
+        // cerr << "get_next_block done!" << endl;
+    }
+    void get_next_clique(int x, bool &done, list<int> &clique) {
+        done = false;
+        clique = *vit[x];
+        ++vit[x];
+        if (vit[x] == vcliques[x].end()) {
+            if (vfinish[x]) {
+                done = true;
+            } else {
+                get_next_block(x);
+            }
+        }
+        // cerr << "get_next_clique done!" << endl;
+    }
+    void dfs(int x) {
+        if (x == K) {
+            if (global_best < now_solution) {
+                global_best = now_solution;
+            }
+            return ;
+        }
+        vpAlgo[x] = new_algorithm(x);
+        get_next_block(x);
+        // cerr << "!!! x: " << x << endl;
+        // int cnt = 0;
+        while (true) {
+            list<int> now_clique;
+            bool done;
+            get_next_clique(x, done, now_clique);
+            // cerr << "now clique: ";
+            // for (const int &vtx : now_clique) {
+            //     cerr << vtx << " ";
+            // }
+            // cerr << endl;
+            if (done) break;
+            now_solution.proc(now_clique, 'A');
+            dfs(x + 1);
+            now_solution.proc(now_clique, 'D');
+            // if (x == 0) {
+            //     ++cnt;
+            //     cerr << "cnt: " << cnt << endl;
+            // }
+        }
+    }
+public:
+
+
+    int solve() {
+        init();
+        cout << "### linxi testing!!!" << endl;
+        clock_t start = clock();
+        dfs(0);
+        clock_t end = clock();
+        fprintf(stderr, "cost %f seconds\n", (double)(end-start)/(double)(CLOCKS_PER_SEC));
+        cout << "best solution: " << global_best.value << endl;
         ////CommandLineOptions options = ParseCommandLineOptions(argc, argv);
 
         ////if (options.verify) {
         ////}
+        return 0;
     }
 } solver;
 
@@ -271,7 +315,7 @@ bool isValidAlgorithm(string const &name)
     return (name == "tomita" || name == "adjlist" || name == "hybrid" || name == "degeneracy");
 }
 
-void ProcessCommandLineArgs(int const argc, char** argv, map<string,string> &mapCommandLineArgs)
+void ProcessCommandLineArgs(int const argc, char** argv, map<string, string> &mapCommandLineArgs)
 {
     for (int i = 1; i < argc; ++i) {
 ////        cout << "Processing argument " << i << endl;
@@ -295,7 +339,7 @@ int main(int argc, char** argv)
 {
     int failureCode(0);
 
-    map<string,string> mapCommandLineArgs;
+    map<string, string> mapCommandLineArgs;
 
     ProcessCommandLineArgs(argc, argv, mapCommandLineArgs);
 
@@ -306,8 +350,9 @@ int main(int argc, char** argv)
     algorithm = ((mapCommandLineArgs.find("--algorithm") != mapCommandLineArgs.end()) ? mapCommandLineArgs["--algorithm"] : "");
     staging = (mapCommandLineArgs.find("--staging") != mapCommandLineArgs.end());
     
-    // assert(mapCommandLineArgs.find("--k") != mapCommandLineArgs.end());
-    // K = stoi(mapCommandLineArgs["--k"]);
+    assert(mapCommandLineArgs.find("--K") != mapCommandLineArgs.end());
+    K = stoi(mapCommandLineArgs["--K"]);
+
     if (inputFile.empty()) {
         cout << "ERROR: Missing input file " << endl;
         // ShowUsageMessage();
