@@ -43,7 +43,7 @@ class Algorithm;
 #include <cmath>
 //#define max(x,y) (x > y? x:y)
 //#define min(x,y) (x < y? x:y)
-using namespace std;
+
 int nodeComparator(int node1, int node2);
 
 void printArray(int* array, int size);
@@ -65,9 +65,7 @@ void runAndPrintStatsMatrix(long (*function)(char**,
                             char** adjMatrix,
                             int n );
 
-
-void RunAndPrintStats(Algorithm *pAlgorithm, list<list<int>> &cliques, bool const outputLatex, vector<long> &vertex_clique,
-                        int &now_vertex, long &clique_left, long &clique_right, bool &done);
+void RunAndPrintStats(Algorithm* pAlgorithm, std::list<std::list<int>> &cliques, bool const outputLatex);
 
 void printListAbbv(std::list<int> const &linkedList, void (*printFunc)(int));
 
@@ -107,4 +105,3 @@ namespace Tools
 };
 
 #endif
-

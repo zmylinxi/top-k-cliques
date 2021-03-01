@@ -30,8 +30,6 @@
 #include <cstdlib>
 #include <cstring>
 
-using namespace std;
-
 /*! \file DegeneracyAlgorithm.h
 
     \brief see DegeneracyAlgorithm.cpp
@@ -55,19 +53,18 @@ public:
     DegeneracyAlgorithm(std::vector<std::list<int>> const &adjacencyList);
     virtual ~DegeneracyAlgorithm();
 
-    virtual long Run(list<list<int>> &cliques, vector<long> &vertex_clique, int &now_vertex, long &clique_left, long &clique_right, bool &done);
+    virtual long Run(std::list<std::list<int>> &cliques);
 
     DegeneracyAlgorithm           (DegeneracyAlgorithm const &) = delete;
     DegeneracyAlgorithm& operator=(DegeneracyAlgorithm const &) = delete;
 
     void listAllMaximalCliquesDegeneracyRecursive(long* cliqueCount,
-                                               list<int> &partialClique, 
+                                               std::list<int> &partialClique, 
                                                int* vertexSets, int* vertexLookup,
                                                int** neighborsInP, int* numNeighbors,
-                                               int beginX, int beginP, int beginR,
-                                               list<list<int>> &cliques, long &clique_left, long &clique_right, bool &done);
+                                               int beginX, int beginP, int beginR);
 
-    long listAllMaximalCliquesDegeneracy(std::vector<std::list<int>> const &adjList, int size, list<list<int>> &cliques, vector<long> &vertex_clique, int &now_vertex, long &clique_left, long &clique_right, bool &done);
+    long listAllMaximalCliquesDegeneracy(std::vector<std::list<int>> const &adjList, int size);
 
 private:
     std::vector<std::list<int>> const &m_AdjacencyList;

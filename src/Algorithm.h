@@ -7,15 +7,13 @@
 #include <string>
 #include <functional>
 
-using namespace std;
-
 class Algorithm
 {
 public:
     Algorithm(std::string const &name);
     virtual ~Algorithm();
 
-    virtual long Run(std::list<std::list<int>> &cliques, std::vector<long> &vertex_clique, int &now_vertex, long &clique_left, long &clique_right, bool &done) = 0;
+    virtual long Run(std::list<std::list<int>> &cliques) = 0;
     virtual void Run() {}
 
     void SetName(std::string const &name);

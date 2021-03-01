@@ -319,9 +319,8 @@ vector<list<int>> readInGraphAdjListEdgesPerLine(int &n, int &m, string const &f
 
 vector<list<int>> readInGraphAdjList(int &n, int &m, string const &fileName)
 {
-    
+
     ifstream instream(fileName.c_str());
-    // cerr << "fileName: " << fileName << endl;
 
     if (instream.good() && !instream.eof())
         instream >> n;
@@ -466,26 +465,25 @@ void runAndPrintStatsMatrix(long (*function)(char**,
     fprintf(stderr, "in %f seconds\n", (double)(end-start)/(double)(CLOCKS_PER_SEC));
     fflush(stderr);
 }
-// RunAndPrintStats(vpAlgo[i], vcliques[i], bTableMode, vertex_clique, now_vertex[i], clique_left[i], clique_right[i]);
-void RunAndPrintStats(Algorithm *pAlgorithm, list<list<int>> &cliques, bool const outputLatex, vector<long> &vertex_clique,
-                        int &now_vertex, long &clique_left, long &clique_right, bool &done)
+
+void RunAndPrintStats(Algorithm *pAlgorithm, list<list<int>> &cliques, bool const outputLatex)
 {
-    // fprintf(stderr, "%s: ", pAlgorithm->GetName().c_str());
-    // fflush(stderr);
+    fprintf(stderr, "%s: ", pAlgorithm->GetName().c_str());
+    fflush(stderr);
 
-    // clock_t start = clock();
-    long const cliqueCount = pAlgorithm->Run(cliques, vertex_clique, now_vertex, clique_left, clique_right, done);
+    clock_t start = clock();
 
-    // clock_t end = clock();
+    long const cliqueCount = pAlgorithm->Run(cliques);
 
-    // fprintf(stderr, "%ld maximal cliques\n", cliqueCount);
+    clock_t end = clock();
 
-    // if (!outputLatex) {
-    //     fprintf(stderr, "in %f seconds\n", (double)(end-start)/(double)(CLOCKS_PER_SEC));
-    // } else {
-    //     printf("%.2f", (double)(end-start)/(double)(CLOCKS_PER_SEC));
-    // }
-    // fflush(stderr);
+    if (!outputLatex) {
+        fprintf(stderr, "%ld maximal cliques, ", cliqueCount);
+        fprintf(stderr, "in %f seconds\n", (double)(end-start)/(double)(CLOCKS_PER_SEC));
+    } else {
+        printf("%.2f", (double)(end-start)/(double)(CLOCKS_PER_SEC));
+    }
+    fflush(stderr);
 }
 
 /*! \brief Print the items in the linked list.
@@ -695,4 +693,3 @@ vector<int> Tools::ReadMetisOrdering(string const &fileName)
 
     return ordering;
 }
-

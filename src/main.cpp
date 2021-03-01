@@ -94,102 +94,48 @@ string basename(string const &fileName)
 }
 
 
-int n; // number of vertices
-int m; // 2x number of edges
-class ETKC_Solver {
-    class Solution {
-    private:
-        vector<int> vertex_cover;
-        vector<list<int>> choose;
-    public:
-        int value;
-        void init() {
-            vertex_cover.resize(n);
-            for (int i = 0; i < n; ++i) {
-                vertex_cover[i] = 0;
-            }
-            value = 0;
-            choose.reserve(K);
-        }
-        bool operator< (const Solution &rhs) const {
-            return value < rhs.value;
-        }
-        void add(int x) {
-            if (++vertex_cover[x] == 1) ++value;
-       }
-        void del(int x) {
-            if (--vertex_cover[x] == 0) --value;
-        }
-        void proc(list<int> &clique, const char &ch) {
-            if (ch == 'A') choose.push_back(clique);
-            else choose.pop_back();
-            for (const int &x : clique) {
-                if (ch == 'A') add(x);
-                else if (ch == 'D') del(x);
-                else assert(false);
-            }
-        }
-    } now_solution, global_best;
+
+class Solution {
 private:
-    vector<list<int>> adjacencyList;
-    vector<long> vertex_clique;
-    vector<Algorithm *> vpAlgo;
-    vector<list<list<int>>> vcliques;
-    vector<list<list<int>>::iterator> vit;
-    vector<int> vnow_vertex;
-    vector<long> vclique_left, vclique_right;
-    vector<bool> vfinish;
-
-    Algorithm* new_algorithm(int id) {
-        vnow_vertex[id] = 0;
-        vclique_left[id] = 0;
-        vclique_right[id] = 0;
-        vfinish[id] = false;
-        vcliques[id].clear();
-        Algorithm *pAlgorithm(nullptr);
-        if (algorithm == "degeneracy") {
-            pAlgorithm = new DegeneracyAlgorithm(adjacencyList);
-        } else {
-            cout << "ERROR: unrecognized algorithm name: " << algorithm << endl;
-            exit(1);
+    vector<int> vertex_cover;
+    vector<list<int>> choose;
+public:
+    int value;
+    void init(int n, int K) {
+        vertex_cover.resize(n);
+        for (int i = 0; i < n; ++i) {
+            vertex_cover[i] = 0;
         }
-
-    #ifdef PRINT_CLIQUES_ONE_BY_ONE
-        auto printClique = [bOneBasedVertexIds](list<int> const &clique) {
-            list<int>::const_iterator it = clique.begin();
-
-            int offset = bOneBasedVertexIds ? 1 : 0;
-
-            if (it != clique.end()) {
-                printf("%d", *it + offset); //cout << *it;
-                ++it;
-            }
-            while (it != clique.end()) {
-                printf(" %d", *it + offset); //cout << " " << *it;
-                ++it;
-            }
-            printf("\n"); //cout << endl;
-        };
-
-        pAlgorithm->AddCallBack(printClique);
-    #endif //PRINT_CLIQUES_ONE_BY_ONE
-
-        // Run algorithm
-        
-
-    #ifdef RETURN_CLIQUES_ONE_BY_ONE
-        auto storeCliqueInList = [&cliques](list<int> const &clique) {
-            cliques.push_back(clique);
-        };
-        pAlgorithm->AddCallBack(storeCliqueInList);
-    #endif //RETURN_CLIQUES_ONE_BY_ONE
-
-        pAlgorithm->SetQuiet(bQuiet);
-
-    ////    cout << "Last clique has size: " << cliques.back().size() << endl << flush;
-        return pAlgorithm;
+        value = 0;
+        choose.reserve(K);
     }
-    
+    bool operator< (const Solution &rhs) const {
+        return value < rhs.value;
+    }
+    void add(int x) {
+        if (++vertex_cover[x] == 1) ++value;
+    }
+    void del(int x) {
+        if (--vertex_cover[x] == 0) --value;
+    }
+    void proc(const list<int> &clique, const char &ch) {
+        if (ch == 'A') choose.push_back(clique);
+        else choose.pop_back();
+        for (const int &x : clique) {
+            if (ch == 'A') add(x);
+            else if (ch == 'D') del(x);
+            else assert(false);
+        }
+    }
+};
+
+int n, m;
+class ETKC_Solver {
+private:
+public:
+    Solution now_solution, global_best;
+    vector<list<int>> adjacencyList;
+    function<void(list<int> const&)> top_k_cliques_dfs;
     void init() {
         if (!bTableMode) {
             PrintHeader();
@@ -197,7 +143,6 @@ private:
             PrintDebugWarning();
     #endif //DEBUG_MESSAGE
         }
-
         bool bOneBasedVertexIds(false);
         if (inputFile.find(".graph") != string::npos) {
             if (!bTableMode) cout << "Detected .graph extension, reading METIS file format. " << endl << flush;
@@ -215,90 +160,53 @@ private:
             cout << "ERROR!: unable to compute adjacencyMatrix, since the graph is too large: " << adjacencyList.size() << " vertices." << endl << flush;
             exit(1);
         }
-
-        vertex_clique.resize(n);
-        fill(vertex_clique.begin(), vertex_clique.end(), -1);
-
-        vpAlgo.resize(K);
-        vcliques.resize(K);
-        vnow_vertex.resize(K);
-        vclique_left.resize(K);
-        vclique_right.resize(K);
-        vfinish.resize(K);
-        vit.resize(K);
-
-        now_solution.init();
-        global_best.init();
-    }
-    void get_next_block(int x) {
-        vclique_left[x] = vclique_right[x];
-        vclique_right[x] += BLOCK;
-        // if (x == 0) {
-        //     cerr << "x: " << x << "[" << vclique_left[x] << ", " << vclique_right[x] << "]" << endl;
-        // }
-        vcliques[x].clear();
-        bool done;
-        RunAndPrintStats(vpAlgo[x], vcliques[x], bTableMode, vertex_clique, vnow_vertex[x], vclique_left[x], vclique_right[x], done);
-        // cerr << "RunAndPrintStats done!" << endl;
-        // cerr << "vcliques size: " << vcliques[x].size() << endl;
         
-        vit[x] = vcliques[x].begin();
-        if (done) {
-            vfinish[x] = true;
-        }
-        // cerr << "get_next_block done!" << endl;
     }
-    void get_next_clique(int x, bool &done, list<int> &clique) {
-        done = false;
-        clique = *vit[x];
-        ++vit[x];
-        if (vit[x] == vcliques[x].end()) {
-            if (vfinish[x]) {
-                done = true;
+    void new_algorithm() {
+        
+        Algorithm *pAlgorithm(nullptr);
+        if (algorithm == "degeneracy") {
+            pAlgorithm = new DegeneracyAlgorithm(adjacencyList);
+        } else {
+            cout << "ERROR: unrecognized algorithm name: " << algorithm << endl;
+            exit(1);
+        }
+
+        // Run algorithm
+        
+        pAlgorithm->AddCallBack(top_k_cliques_dfs);
+
+        pAlgorithm->SetQuiet(bQuiet);
+        
+        list<list<int>> cliques;
+        long num = pAlgorithm->Run(cliques);
+        // cerr << "cliques number: " << num << endl;
+    ////    cout << "Last clique has size: " << cliques.back().size() << endl << flush;
+    }
+    void fake_dfs() {
+        int x = 0;
+        global_best.init(n, K);
+        now_solution.init(n, K);
+        top_k_cliques_dfs = [&](list<int> const &clique) {
+            ++x;
+            now_solution.proc(clique, 'A');
+            if (x == K) {
+                if (global_best < now_solution) {
+                    global_best = now_solution;
+                }
             } else {
-                get_next_block(x);
+                new_algorithm();
             }
-        }
-        // cerr << "get_next_clique done!" << endl;
+            now_solution.proc(clique, 'D');
+            --x;
+        };
+        new_algorithm();
     }
-    void dfs(int x) {
-        if (x == K) {
-            if (global_best < now_solution) {
-                global_best = now_solution;
-            }
-            return ;
-        }
-        vpAlgo[x] = new_algorithm(x);
-        get_next_block(x);
-        // cerr << "!!! x: " << x << endl;
-        // int cnt = 0;
-        while (true) {
-            list<int> now_clique;
-            bool done;
-            get_next_clique(x, done, now_clique);
-            // cerr << "now clique: ";
-            // for (const int &vtx : now_clique) {
-            //     cerr << vtx << " ";
-            // }
-            // cerr << endl;
-            if (done) break;
-            now_solution.proc(now_clique, 'A');
-            dfs(x + 1);
-            now_solution.proc(now_clique, 'D');
-            // if (x == 0) {
-            //     ++cnt;
-            //     cerr << "cnt: " << cnt << endl;
-            // }
-        }
-    }
-public:
-
-
     int solve() {
+        clock_t start = clock();
         init();
         cout << "### linxi testing!!!" << endl;
-        clock_t start = clock();
-        dfs(0);
+        fake_dfs();
         clock_t end = clock();
         fprintf(stderr, "cost %f seconds\n", (double)(end-start)/(double)(CLOCKS_PER_SEC));
         cout << "best solution: " << global_best.value << endl;
